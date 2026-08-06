@@ -41,8 +41,13 @@ export default function App() {
   const [showCheckout, setShowCheckout] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showMyNumbers, setShowMyNumbers] = useState(false)
-  // Tracks numbers reserved but payment code not yet submitted
-  const [pendingReservation, setPendingReservation] = useState<number[] | null>(null)
+  // Groups of numbers reserved but payment code not yet submitted.
+  // A buyer can hold several pending groups (each with its own payment code).
+  const [pendingReservations, setPendingReservations] = useState<number[][]>([])
+  // The specific group currently being paid in the checkout modal.
+  const [resumeGroup, setResumeGroup] = useState<number[] | null>(null)
+
+  const flatPending = pendingReservations.flat()
 
   const soldCount = tickets.filter((t) => t.status === 'paid').length
   const reservedCount = tickets.filter((t) => t.status === 'reserved').length
@@ -51,14 +56,19 @@ export default function App() {
   // Restaurar reserva pendiente cuando se reconoce al visitante por su código
   useEffect(() => {
     if (identity === 'recognized' && profile && profile.reservedNumbers.length > 0) {
-      setPendingReservation(profile.reservedNumbers)
+      setPendingReservations([profile.reservedNumbers])
     }
   }, [identity, profile])
 
   const handleReserve: typeof reserveNumbers = async (payload) => {
     const result = await reserveNumbers(payload)
     if (result.success) {
-      setPendingReservation(payload.ticket_numbers.slice().sort((a, b) => a - b))
+      // Keep existing pending groups and add the newly reserved group as another one
+      setPendingReservations((prev) => {
+        const fresh = payload.ticket_numbers.slice().sort((a, b) => a - b)
+        // Avoid duplicating a group that may already be tracked after a refresh
+        return prev.some((g) => g.join(',') === fresh.join(',')) ? prev : [...prev, fresh]
+      })
     }
     return result
   }
@@ -66,7 +76,10 @@ export default function App() {
   const handleConfirmPayment: typeof confirmPayment = async (payload) => {
     const result = await confirmPayment(payload)
     if (result.success) {
-      setPendingReservation(null)
+      setPendingReservations((prev) =>
+        prev.filter((g) => payload.ticket_numbers.some((n) => g.includes(n)) === false)
+      )
+      setResumeGroup(null)
     }
     return result
   }
@@ -127,6 +140,7 @@ export default function App() {
   const handleCloseCheckout = () => {
     // Keep pendingReservation alive so the banner shows
     setShowCheckout(false)
+    setResumeGroup(null)
   }
 
   return (
@@ -160,7 +174,7 @@ export default function App() {
       <RaffleHeader raffle={raffle} soldCount={soldCount} reservedCount={reservedCount} />
 
       {/* "Continue your process" banner */}
-      {pendingReservation && !showCheckout && (
+      {flatPending.length > 0 && !showCheckout && (
         <div
           className="max-w-4xl mx-auto px-4 mt-4"
         >
@@ -176,19 +190,20 @@ export default function App() {
               <span style={{ fontSize: 22 }}>⏳</span>
               <div>
                 <p className="text-sm font-600" style={{ color: '#c7d2fe' }}>
-                  Tienes números apartados pendientes de pago
+                  Tienes {flatPending.length} número{flatPending.length !== 1 ? 's' : ''} apartado{flatPending.length !== 1 ? 's' : ''}
+                  {' '}· {pendingReservations.length} pendiente{pendingReservations.length !== 1 ? 's' : ''} de pago
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: 'rgba(165,180,252,0.6)' }}>
                   Números:{' '}
                   <span style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc' }}>
-                    {pendingReservation.map((n) => String(n).padStart(3, '0')).join(', ')}
+                    {flatPending.map((n) => String(n).padStart(3, '0')).join(', ')}
                   </span>
-                  {' '}· {fmt(pendingReservation.length * raffle.ticket_price)}
+                  {' '}· {fmt(flatPending.length * raffle.ticket_price)}
                 </p>
               </div>
             </div>
             <button
-              onClick={() => setShowCheckout(true)}
+              onClick={() => { setResumeGroup(pendingReservations[0]); setShowCheckout(true) }}
               className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-700"
               style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
@@ -205,8 +220,8 @@ export default function App() {
         totalTickets={raffle.total_tickets}
       />
 
-      {/* Sticky bottom bar — shown when numbers are selected AND no pending reservation */}
-      {selectedNumbers.length > 0 && !pendingReservation && (
+      {/* Sticky bottom bar — shown when numbers are selected (even if other groups are pending) */}
+      {selectedNumbers.length > 0 && (
         <div
           className="fixed bottom-0 left-0 right-0 z-30"
           style={{ background: 'rgba(13,10,36,0.94)', borderTop: '1px solid rgba(99,102,241,0.3)', backdropFilter: 'blur(12px)' }}
@@ -227,7 +242,7 @@ export default function App() {
               <button onClick={clearSelection} className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
                 Limpiar
               </button>
-              <button onClick={() => setShowCheckout(true)} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#f5a623,#f97316)', color: '#1a0a00', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => { setResumeGroup(null); setShowCheckout(true) }} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#f5a623,#f97316)', color: '#1a0a00', border: 'none', cursor: 'pointer' }}>
                 🎟️ Apartar números →
               </button>
             </div>
@@ -236,7 +251,7 @@ export default function App() {
       )}
 
       {/* Sticky bottom bar — pending reservation variant */}
-      {pendingReservation && !showCheckout && (
+      {flatPending.length > 0 && !showCheckout && selectedNumbers.length === 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-30" style={{ background: 'rgba(13,10,36,0.94)', borderTop: '1px solid rgba(99,102,241,0.3)', backdropFilter: 'blur(12px)' }}>
           <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
             <div>
@@ -247,21 +262,21 @@ export default function App() {
                 Tus números están guardados — completa el proceso
               </p>
             </div>
-            <button onClick={() => setShowCheckout(true)} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <button onClick={() => { setResumeGroup(pendingReservations[0]); setShowCheckout(true) }} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
               Continuar →
             </button>
           </div>
         </div>
       )}
 
-      {(selectedNumbers.length > 0 || pendingReservation) && <div style={{ height: 80 }} />}
+      {(selectedNumbers.length > 0 || flatPending.length > 0) && <div style={{ height: 80 }} />}
 
       {showCheckout && (
         <CheckoutModal
           selectedNumbers={selectedNumbers}
           ticketPrice={raffle.ticket_price}
           raffleId={raffle.id}
-          pendingReservation={pendingReservation ?? undefined}
+          pendingReservation={resumeGroup ?? undefined}
           profile={profile}
           onClose={handleCloseCheckout}
           onReserve={handleReserve}
@@ -285,13 +300,14 @@ export default function App() {
           onClose={() => setShowMyNumbers(false)}
           onContinuePayment={(nums) => {
             setShowMyNumbers(false)
-            setPendingReservation(nums)
+            setResumeGroup(nums)
             setShowCheckout(true)
           }}
           onLogout={() => {
             clearIdentity()
             setShowMyNumbers(false)
-            setPendingReservation(null)
+            setPendingReservations([])
+            setResumeGroup(null)
           }}
         />
       )}
