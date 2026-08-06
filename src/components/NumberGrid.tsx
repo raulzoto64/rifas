@@ -156,7 +156,7 @@ export default function NumberGrid({ tickets, selectedNumbers, onToggle }: Props
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(8, 1fr)',
+            gridTemplateColumns: 'repeat(7, 1fr)',
             gap: 6,
           }}
           className="sm-grid-10"
