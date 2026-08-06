@@ -220,56 +220,59 @@ export default function App() {
         totalTickets={raffle.total_tickets}
       />
 
-      {/* Sticky bottom bar — shown when numbers are selected (even if other groups are pending) */}
-      {selectedNumbers.length > 0 && (
+      {/* Sticky bottom bar — shown when numbers are selected and/or pending groups exist */}
+      {(selectedNumbers.length > 0 || flatPending.length > 0) && (
         <div
           className="fixed bottom-0 left-0 right-0 z-30"
           style={{ background: 'rgba(13,10,36,0.94)', borderTop: '1px solid rgba(99,102,241,0.3)', backdropFilter: 'blur(12px)' }}
         >
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-600" style={{ color: '#e8e4ff' }}>
-                {selectedNumbers.length} número{selectedNumbers.length !== 1 ? 's' : ''} seleccionado{selectedNumbers.length !== 1 ? 's' : ''}
-              </p>
-              <p className="text-xs" style={{ color: 'rgba(224,220,255,0.45)' }}>
-                Total:{' '}
-                <span style={{ color: '#f5a623', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
-                  {fmt(total)}
-                </span>
-              </p>
+          <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              {flatPending.length > 0 && (
+                <p className="text-sm font-600" style={{ color: '#c7d2fe' }}>
+                  ⏳ {flatPending.length} número{flatPending.length !== 1 ? 's' : ''} pendiente{flatPending.length !== 1 ? 's' : ''} por pagar
+                  <span style={{ fontFamily: 'var(--font-mono)', color: '#a5b4fc', fontSize: 12, marginLeft: 8 }}>
+                    {flatPending.map((n) => String(n).padStart(3, '0')).join(', ')}
+                  </span>
+                </p>
+              )}
+              {selectedNumbers.length > 0 && (
+                <p className="text-sm font-600" style={{ color: '#e8e4ff' }}>
+                  ➕ {selectedNumbers.length} número{selectedNumbers.length !== 1 ? 's' : ''} nuevo{selectedNumbers.length !== 1 ? 's' : ''} seleccionado{selectedNumbers.length !== 1 ? 's' : ''}
+                </p>
+              )}
+
             </div>
-            <div className="flex gap-2">
-              <button onClick={clearSelection} className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-                Limpiar
-              </button>
-              <button onClick={() => { setResumeGroup(null); setShowCheckout(true) }} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#f5a623,#f97316)', color: '#1a0a00', border: 'none', cursor: 'pointer' }}>
-                🎟️ Apartar números →
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {flatPending.length > 0 && (
+                <button
+                  onClick={() => { setResumeGroup(pendingReservations[0]); setShowCheckout(true) }}
+                  className="px-4 py-2 rounded-xl text-sm font-600"
+                  style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                >
+                  💳 Pagar números pendientes
+                </button>
+              )}
+              {selectedNumbers.length > 0 && (
+                <button
+                  onClick={() => clearSelection()}
+                  className="px-3 py-2 rounded-xl text-xs"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+                >
+                  Limpiar
+                </button>
+              )}
+              {selectedNumbers.length > 0 && (
+                <button onClick={() => { setResumeGroup(null); setShowCheckout(true) }} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#f5a623,#f97316)', color: '#1a0a00', border: 'none', cursor: 'pointer' }}>
+                  🎟️ Agregar nuevas →
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Sticky bottom bar — pending reservation variant */}
-      {flatPending.length > 0 && !showCheckout && selectedNumbers.length === 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-30" style={{ background: 'rgba(13,10,36,0.94)', borderTop: '1px solid rgba(99,102,241,0.3)', backdropFilter: 'blur(12px)' }}>
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-600" style={{ color: '#c7d2fe' }}>
-                ⏳ Falta ingresar tu código de pago
-              </p>
-              <p className="text-xs" style={{ color: 'rgba(165,180,252,0.5)' }}>
-                Tus números están guardados — completa el proceso
-              </p>
-            </div>
-            <button onClick={() => { setResumeGroup(pendingReservations[0]); setShowCheckout(true) }} className="px-5 py-2 rounded-xl text-sm font-600" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              Continuar →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {(selectedNumbers.length > 0 || flatPending.length > 0) && <div style={{ height: 80 }} />}
+      {(selectedNumbers.length > 0 || flatPending.length > 0) && <div style={{ height: 96 }} />}
 
       {showCheckout && (
         <CheckoutModal
