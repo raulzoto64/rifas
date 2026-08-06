@@ -361,7 +361,7 @@ function PaymentsTab({ payments, filter, onFilter, onUpdate }: { payments: Payme
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[11px]" style={{ color: 'rgba(224,220,255,0.45)' }}>Código de confirmación:</span>
                   <code className="text-xs px-2 py-1 rounded" style={{ background: 'rgba(245,166,35,0.12)', color: '#f5a623', fontFamily: 'var(--font-mono)', border: '1px solid rgba(245,166,35,0.25)' }}>{p.payment_code}</code>
-                  <button onClick={() => navigator.clipboard.writeText(p.payment_code || '')} className="px-2 py-1 rounded text-[11px] flex-shrink-0" style={{ background: 'rgba(245,166,35,0.15)', color: '#fbbf24', border: '1px solid rgba(245,166,35,0.3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <button onClick={() => { navigator.clipboard.writeText(p.payment_code || ''); alert('✓ Código copiado al portapapeles') }} className="px-2 py-1 rounded text-[11px] flex-shrink-0" style={{ background: 'rgba(245,166,35,0.15)', color: '#fbbf24', border: '1px solid rgba(245,166,35,0.3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                     📋 Copiar
                   </button>
                 </div>
@@ -526,7 +526,6 @@ function DeleteButton({ onDelete, label }: { onDelete: () => Promise<{ success: 
 }
 
 function ParticipantsTab({ participants, tickets, onDelete }: { participants: Participant[], tickets: Ticket[], onDelete: (id: string) => Promise<{ success: boolean; error?: string }> }) {
-  const soldOnly = participants.filter(p => tickets.some(t => t.participant_id === p.id))
   return (
     <div>
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -539,10 +538,10 @@ function ParticipantsTab({ participants, tickets, onDelete }: { participants: Pa
             </tr>
           </thead>
           <tbody>
-            {soldOnly.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-xs" style={{ color: 'rgba(224,220,255,0.3)' }}>Aún no hay participantes con números</td></tr>
+            {participants.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-xs" style={{ color: 'rgba(224,220,255,0.3)' }}>Aún no hay participantes</td></tr>
             )}
-            {soldOnly.map((p, i) => {
+            {participants.map((p, i) => {
               const own = tickets.filter(t => t.participant_id === p.id)
               const paidCount = own.filter(t => t.status === 'paid').length
               return (
@@ -554,7 +553,7 @@ function ParticipantsTab({ participants, tickets, onDelete }: { participants: Pa
                   <td className="px-4 py-3 text-xs" style={{ color: 'rgba(224,220,255,0.6)', fontFamily: 'var(--font-mono)' }}>
                     {own.map(t => String(t.ticket_number).padStart(3, '0')).join(', ') || '—'}
                   </td>
-                  <td className="px-4 py-3 text-xs font-600" style={{ color: paidCount > 0 ? '#4ade80' : '#fbbf24' }}>{paidCount}/{own.length}</td>
+                  <td className="px-4 py-3 text-xs font-600" style={{ color: paidCount > 0 ? '#4ade80' : '#fbbf24' }}>{own.length > 0 ? `${paidCount}/${own.length}` : '—'}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: 'rgba(224,220,255,0.4)' }}>{formatDate(p.created_at)}</td>
                   <td className="px-4 py-3"><DeleteButton onDelete={() => onDelete(p.id)} label="participante" /></td>
                 </tr>
@@ -653,7 +652,7 @@ function HelpersTab({ helpers, tickets, onAdd, onDelete }: { helpers: Helper[], 
                   </div>
                   <div className="flex items-center gap-2">
                     <code style={{ color: '#a5b4fc', fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all' }}>{link}</code>
-                    <button onClick={() => navigator.clipboard.writeText(link)} className="px-2 py-1 rounded text-xs flex-shrink-0" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    <button onClick={() => { navigator.clipboard.writeText(link); alert('✓ Enlace copiado al portapapeles') }} className="px-2 py-1 rounded text-xs flex-shrink-0" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                       📋 Copiar
                     </button>
                   </div>
