@@ -214,11 +214,26 @@ export default function CheckoutModal({
                 <span className="text-sm font-600" style={{ color: '#fbbf24' }}>¿Cómo obtener tu código?</span>
               </div>
               <ol className="text-xs flex flex-col gap-1.5 list-none" style={{ color: 'rgba(251,191,36,0.7)', paddingLeft: 0 }}>
-                <li>1. Realiza la transferencia de <strong style={{ color: '#fbbf24' }}>{fmt(reservedTotal)}</strong></li>
-                <li>2. Envía tu comprobante al administrador por WhatsApp</li>
+                <li>1. Haz tu pago de <strong style={{ color: '#fbbf24' }}>{fmt(reservedTotal)}</strong> por Yape a:</li>
+              </ol>
+              <div className="mt-2 rounded-xl p-3 text-center" style={{ background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.35)' }}>
+                <div className="text-xs" style={{ color: '#6ee7b7' }}>📱 Yape · 993 790 515</div>
+                <div className="text-xl font-900 mt-1" style={{ color: '#34d399', fontFamily: 'var(--font-mono)' }}>993 790 515</div>
+              </div>
+              <ol className="text-xs flex flex-col gap-1.5 list-none mt-1.5" style={{ color: 'rgba(251,191,36,0.7)', paddingLeft: 0 }}>
+                <li>2. Envía tu captura del pago por WhatsApp al mismo número</li>
                 <li>3. Te enviamos tu código de confirmación</li>
                 <li>4. Ingrésalo aquí abajo 👇</li>
               </ol>
+              <a
+                href={`https://wa.me/51993790515?text=${encodeURIComponent(`Hola, ya pagué mi rifa (${fmt(reservedTotal)}, captura adjunta). Mi código es: ${pendingReservation ? 'te lo envío al recibirlo' : ''}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-700"
+                style={{ background: '#25D366', color: '#fff', textDecoration: 'none', cursor: 'pointer' }}
+              >
+                💬 Enviar captura por WhatsApp
+              </a>
             </div>
 
             <form onSubmit={handleConfirm} className="px-6 pb-6 flex flex-col gap-4">
