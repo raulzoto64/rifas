@@ -588,6 +588,100 @@ export function useRaffleStore() {
     [payments, tickets, raffle, currentParticipant, buildProfile]
   )
 
+  // ── Agregar números nuevos a una reserva pendiente existente ──
+  // Si el participante ya dejó una reserva (pago) pendiente, nuevos números se
+  // suman a ese mismo pago/código en vez de crear uno nuevo.
+  const addToReservation = useCallback(
+    async (payload: { raffle_id: string; ticket_numbers: number[] }): Promise<
+      Result & { ticket_numbers?: number[] }
+    > => {
+      try {
+        const client = supabase()
+        const participantId = currentParticipant?.id
+        if (!participantId) return { success: false, error: 'No hay sesión activa.' }
+
+        // Validar disponibilidad de los nuevos números
+        const { data: liveTickets, error: liveError } = await client
+          .from('tickets')
+          .select('id, ticket_number, status')
+          .eq('raffle_id', payload.raffle_id)
+          .in('ticket_number', payload.ticket_numbers)
+        if (liveError) throw liveError
+        const unavailable = (liveTickets ?? []).filter((t) => t.status !== 'available')
+        if (unavailable.length > 0) {
+          return {
+            success: false,
+            error: `Los números ${unavailable.map((t) => t.ticket_number).join(', ')} ya no están disponibles.`,
+          }
+        }
+
+        // Buscar la reserva pendiente existente del participante en esta rifa
+        const pending = payments.find(
+          (p) =>
+            p.participant_id === participantId &&
+            p.status === 'pending' &&
+            p.amount_paid != null
+        )
+        if (!pending || !pending.payment_code) {
+          return { success: false, error: 'No hay una reserva pendiente para ampliar.' }
+        }
+
+        const newIds = (liveTickets ?? []).map((t) => t.id)
+        const combinedIds = Array.from(new Set([...pending.ticket_ids, ...newIds]))
+        const combinedAmount = combinedIds.length * (raffle?.ticket_price ?? 0)
+
+        // Ampliar el pago pendiente existente
+        const { error: payError } = await client
+          .from('payments')
+          .update({ ticket_ids: combinedIds, amount_paid: combinedAmount })
+          .eq('id', pending.id)
+        if (payError) throw payError
+
+        // Reservar los nuevos números con el participante
+        const referredBy = localStorage.getItem(REF_KEY) ?? undefined
+        const { error: ticketError } = await client
+          .from('tickets')
+          .update({
+            status: 'reserved',
+            participant_id: participantId,
+            payment_code: pending.payment_code,
+            referred_by: referredBy,
+          })
+          .eq('raffle_id', payload.raffle_id)
+          .in('ticket_number', payload.ticket_numbers)
+        if (ticketError) throw ticketError
+
+        // Refrescar estado local
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === pending.id
+              ? { ...p, ticket_ids: combinedIds, amount_paid: combinedAmount }
+              : p
+          )
+        )
+        setTickets((prev) =>
+          prev.map((t) =>
+            payload.ticket_numbers.includes(t.ticket_number)
+              ? { ...t, status: 'reserved', participant_id: participantId, payment_code: pending.payment_code }
+              : t
+          )
+        )
+        setSelectedNumbers([])
+        if (currentParticipant) {
+          const updatedProfile = await buildProfile(currentParticipant)
+          if (updatedProfile) setProfile(updatedProfile)
+        }
+        return { success: true }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Error al ampliar la reserva.',
+        }
+      }
+    },
+    [payments, tickets, raffle, currentParticipant, buildProfile]
+  )
+
   const updatePaymentStatus = useCallback(
     async (paymentId: string, status: 'approved' | 'rejected') => {
       try {
@@ -794,6 +888,7 @@ export function useRaffleStore() {
     toggleNumber,
     clearSelection,
     reserveNumbers,
+    addToReservation,
     confirmPayment,
     updatePaymentStatus,
     identifyByWhatsapp,

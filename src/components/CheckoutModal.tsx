@@ -8,11 +8,14 @@ interface Props {
   raffleId: string
   // When opened to continue a previous reservation
   pendingReservation?: number[]
+  // Números de una reserva pendiente a los que se sumarán los nuevos seleccionados
+  existingReservation?: number[]
   // Perfil del participante si ya está identificado (se restauró sesión)
   profile?: ParticipantProfile | null
   onClose: () => void
   onReserve: (payload: ReservePayload) => Promise<{ success: boolean; error?: string }>
   onConfirmPayment: (payload: ConfirmPaymentPayload) => Promise<{ success: boolean; error?: string }>
+  onAddToReservation?: (payload: { raffle_id: string; ticket_numbers: number[] }) => Promise<{ success: boolean; error?: string }>
   onIdentifyWhatsapp?: (whatsapp: string) => Promise<ParticipantProfile | null>
 }
 
@@ -26,13 +29,18 @@ export default function CheckoutModal({
   ticketPrice,
   raffleId,
   pendingReservation,
+  existingReservation,
   profile,
   onClose,
   onReserve,
   onConfirmPayment,
+  onAddToReservation,
 }: Props) {
+  // Modo "sumar a reserva pendiente": el participante ya está identificado y
+  // agrega números nuevos a su reserva existente (sin volver a pedir datos).
+  const isAddToExisting = Boolean(existingReservation && existingReservation.length > 0)
   // If opened to continue a prior reservation, jump straight to that step
-  const initialStep: Step = pendingReservation ? 'reserved' : 'warning'
+  const initialStep: Step = pendingReservation ? 'reserved' : isAddToExisting ? 'warning' : 'warning'
 
   const [step, setStep] = useState<Step>(initialStep)
   const [form, setForm] = useState({
@@ -57,6 +65,36 @@ export default function CheckoutModal({
 
   const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  // En modo "sumar a reserva pendiente": no se vuelven a pedir datos.
+  // Se agregan los números nuevos directamente a la reserva existente.
+  const handleAddToExistingOrData = async () => {
+    if (isAddToExisting) {
+      if (!onAddToReservation) {
+        setErrorMsg('No se pudo ampliar la reserva.')
+        return
+      }
+      setSubmitting(true)
+      setErrorMsg('')
+      await new Promise((r) => setTimeout(r, 500))
+      const result = await onAddToReservation({
+        raffle_id: raffleId,
+        ticket_numbers: sortedSelected,
+      })
+      setSubmitting(false)
+      if (result.success) {
+        const merged = Array.from(new Set([...(existingReservation ?? []), ...sortedSelected])).sort((a, b) => a - b)
+        setReservedNumbers(merged)
+        setReservedTotal(merged.length * ticketPrice)
+        setStep('reserved')
+      } else {
+        setErrorMsg(result.error || 'Error al agregar los números.')
+      }
+      return
+    }
+    setErrorMsg('')
+    setStep('data')
+  }
 
   const handleReserve = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,7 +189,8 @@ export default function CheckoutModal({
           <WarningStep
             numbers={sortedSelected}
             total={selectionTotal}
-            onAccept={() => { setErrorMsg(''); setStep('data') }}
+            pendingNumbers={isAddToExisting ? existingReservation : undefined}
+            onAccept={handleAddToExistingOrData}
             onCancel={onClose}
           />
         )}
@@ -259,8 +298,14 @@ export default function CheckoutModal({
 
 // ── Sub-components ───────────────────────────────────────────────────────
 
-function WarningStep({ numbers, total, onAccept, onCancel }: { numbers: number[]; total: number; onAccept: () => void; onCancel: () => void }) {
+function WarningStep({ numbers, total, pendingNumbers, onAccept, onCancel }: { numbers: number[]; total: number; pendingNumbers?: number[]; onAccept: () => void; onCancel: () => void }) {
   const [confirmed, setConfirmed] = useState(false)
+  const pricePer = pendingNumbers && pendingNumbers.length > 0 && numbers.length > 0
+    ? total / numbers.length
+    : null
+  const combinedTotal = pendingNumbers && pricePer
+    ? (pendingNumbers.length + numbers.length) * pricePer
+    : total
   return (
     <div className="p-6 flex flex-col gap-5">
       {/* Back/close row */}
@@ -287,8 +332,23 @@ function WarningStep({ numbers, total, onAccept, onCancel }: { numbers: number[]
         </div>
       </div>
 
+      {pendingNumbers && pendingNumbers.length > 0 && (
+        <div className="rounded-xl p-4" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)' }}>
+          <div className="text-xs mb-2" style={{ color: 'rgba(251,146,60,0.75)' }}>Tus números pendientes por pagar</div>
+          <div className="flex flex-wrap gap-1.5 mb-1">
+            {pendingNumbers.map((n) => (
+              <span key={n} className="rounded-lg px-2.5 py-1 text-sm font-700" style={{ background: 'rgba(249,115,22,0.15)', color: '#fdba74', fontFamily: 'var(--font-mono)', border: '1px solid rgba(249,115,22,0.35)' }}>
+                {String(n).padStart(3, '0')}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="text-xs mb-2" style={{ color: 'rgba(224,220,255,0.45)' }}>Números que vas a apartar</div>
+        <div className="text-xs mb-2" style={{ color: 'rgba(224,220,255,0.45)' }}>
+          {pendingNumbers && pendingNumbers.length > 0 ? 'Números nuevos que agregas' : 'Números que vas a apartar'}
+        </div>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {numbers.map((n) => (
             <span key={n} className="rounded-lg px-2.5 py-1 text-sm font-700" style={{ background: 'rgba(99,102,241,0.15)', color: '#c7d2fe', fontFamily: 'var(--font-mono)', border: '1px solid rgba(99,102,241,0.3)' }}>
@@ -297,10 +357,21 @@ function WarningStep({ numbers, total, onAccept, onCancel }: { numbers: number[]
           ))}
         </div>
         <div className="text-xs" style={{ color: 'rgba(224,220,255,0.4)' }}>
-          Total a pagar:{' '}
-          <strong style={{ color: '#f5a623', fontFamily: 'var(--font-display)', fontSize: 15 }}>
-            {fmt(total)}
-          </strong>
+          {pendingNumbers && pendingNumbers.length > 0 ? (
+            <>
+              Total a pagar (pendientes + nuevos):{' '}
+              <strong style={{ color: '#f5a623', fontFamily: 'var(--font-display)', fontSize: 15 }}>
+                {fmt(combinedTotal)}
+              </strong>
+            </>
+          ) : (
+            <>
+              Total a pagar:{' '}
+              <strong style={{ color: '#f5a623', fontFamily: 'var(--font-display)', fontSize: 15 }}>
+                {fmt(total)}
+              </strong>
+            </>
+          )}
         </div>
       </div>
 
@@ -314,7 +385,7 @@ function WarningStep({ numbers, total, onAccept, onCancel }: { numbers: number[]
       </label>
 
       <button onClick={onAccept} disabled={!confirmed} className="w-full rounded-xl py-3.5 text-sm font-700" style={{ background: confirmed ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(99,102,241,0.12)', color: confirmed ? '#fff' : 'rgba(165,180,252,0.3)', border: 'none', cursor: confirmed ? 'pointer' : 'not-allowed', fontFamily: 'var(--font-body)', transition: 'all 0.2s' }}>
-        Sí, confirmo mis números →
+        {pendingNumbers && pendingNumbers.length > 0 ? 'Sí, sumar a mis números pendientes →' : 'Sí, confirmo mis números →'}
       </button>
     </div>
   )

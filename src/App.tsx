@@ -27,6 +27,7 @@ export default function App() {
     toggleNumber,
     clearSelection,
     reserveNumbers,
+    addToReservation,
     confirmPayment,
     updatePaymentStatus,
     identifyByWhatsapp,
@@ -79,6 +80,20 @@ export default function App() {
       setPendingReservations((prev) =>
         prev.filter((g) => payload.ticket_numbers.some((n) => g.includes(n)) === false)
       )
+      setResumeGroup(null)
+    }
+    return result
+  }
+
+  const handleAddToReservation = async (payload: { raffle_id: string; ticket_numbers: number[] }) => {
+    const result = await addToReservation(payload)
+    if (result.success) {
+      // Merge los números nuevos en el grupo pendiente existente
+      setPendingReservations((prev) => {
+        if (prev.length === 0) return [payload.ticket_numbers.slice().sort((a, b) => a - b)]
+        const merged = Array.from(new Set([...prev[0], ...payload.ticket_numbers])).sort((a, b) => a - b)
+        return [[...merged], ...prev.slice(1)]
+      })
       setResumeGroup(null)
     }
     return result
@@ -280,10 +295,12 @@ export default function App() {
           ticketPrice={raffle.ticket_price}
           raffleId={raffle.id}
           pendingReservation={resumeGroup ?? undefined}
+          existingReservation={resumeGroup ? undefined : flatPending}
           profile={profile}
           onClose={handleCloseCheckout}
           onReserve={handleReserve}
           onConfirmPayment={handleConfirmPayment}
+          onAddToReservation={handleAddToReservation}
           onIdentifyWhatsapp={identifyByWhatsapp}
         />
       )}
