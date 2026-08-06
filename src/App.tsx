@@ -276,7 +276,6 @@ export default function App() {
           onAnswer={setIdentityAnswer}
           onLinkWhatsapp={identifyByWhatsapp}
           checking={checkingProfile}
-          onClose={() => setIdentityAnswer('new')}
         />
       )}
 

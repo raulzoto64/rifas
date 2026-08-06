@@ -5,10 +5,9 @@ interface Props {
   onAnswer: (answer: 'new' | 'existing') => void
   onLinkWhatsapp: (whatsapp: string) => Promise<ParticipantProfile | null>
   checking: boolean
-  onClose: () => void
 }
 
-export default function IdentityModal({ onAnswer, onLinkWhatsapp, checking, onClose }: Props) {
+export default function IdentityModal({ onAnswer, onLinkWhatsapp, checking }: Props) {
   const [existing, setExisting] = useState(false)
   const [whatsapp, setWhatsapp] = useState('')
   const [error, setError] = useState('')
@@ -70,13 +69,6 @@ export default function IdentityModal({ onAnswer, onLinkWhatsapp, checking, onCl
               style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(224,220,255,0.7)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
             >
               ↪️ Ya ingresé antes
-            </button>
-            <button
-              onClick={onClose}
-              className="rounded-xl py-2 text-xs"
-              style={{ background: 'transparent', color: 'rgba(224,220,255,0.4)', border: 'none', cursor: 'pointer' }}
-            >
-              Seguir como invitado
             </button>
           </div>
         ) : (
