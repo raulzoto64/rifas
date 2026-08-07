@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Payment, Ticket, Participant, Helper } from '../types'
+import { useToast } from './Toast'
 
 interface Props {
   tickets: Ticket[]
@@ -253,6 +254,8 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
 }) {
   if (!helper) return null
 
+  const { toast } = useToast()
+
   const baseUrl = `${window.location.origin}${window.location.pathname}`
   const myLink = `${baseUrl}?ref=${helper.link_token}`
 
@@ -323,7 +326,7 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
             >
               💬 Enviar
             </a>
-            <button onClick={() => { navigator.clipboard.writeText(myLink); alert('✓ Enlace copiado al portapapeles') }} className="flex-shrink-0 rounded-lg px-3 py-2 text-xs font-600" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            <button onClick={() => { navigator.clipboard.writeText(myLink); toast('Enlace copiado al portapapeles') }} className="flex-shrink-0 rounded-lg px-3 py-2 text-xs font-600" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
               📋 Copiar
             </button>
           </div>
@@ -413,6 +416,7 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
 }
 
 function PaymentsTab({ payments, filter, onFilter, onUpdate }: { payments: Payment[], filter: string, onFilter: (f: any) => void, onUpdate: (id: string, s: 'approved' | 'rejected') => void }) {
+  const { toast } = useToast()
   return (
     <div>
       <div className="flex gap-2 mb-4">
@@ -455,7 +459,7 @@ function PaymentsTab({ payments, filter, onFilter, onUpdate }: { payments: Payme
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[11px]" style={{ color: 'rgba(224,220,255,0.45)' }}>Código de confirmación:</span>
                   <code className="text-xs px-2 py-1 rounded" style={{ background: 'rgba(245,166,35,0.12)', color: '#f5a623', fontFamily: 'var(--font-mono)', border: '1px solid rgba(245,166,35,0.25)' }}>{p.payment_code}</code>
-                  <button onClick={() => { navigator.clipboard.writeText(p.payment_code || ''); alert('✓ Código copiado al portapapeles') }} className="px-2 py-1 rounded text-[11px] flex-shrink-0" style={{ background: 'rgba(245,166,35,0.15)', color: '#fbbf24', border: '1px solid rgba(245,166,35,0.3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  <button onClick={() => { navigator.clipboard.writeText(p.payment_code || ''); toast('Código copiado al portapapeles') }} className="px-2 py-1 rounded text-[11px] flex-shrink-0" style={{ background: 'rgba(245,166,35,0.15)', color: '#fbbf24', border: '1px solid rgba(245,166,35,0.3)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                     📋 Copiar
                   </button>
                 </div>
@@ -661,6 +665,7 @@ function ParticipantsTab({ participants, tickets, onDelete }: { participants: Pa
 }
 
 function HelpersTab({ helpers, tickets, onAdd, onDelete }: { helpers: Helper[], tickets: Ticket[], onAdd: (d: { first_name: string; last_name: string; whatsapp: string; password: string }) => Promise<{ success: boolean; error?: string }>, onDelete: (id: string) => Promise<{ success: boolean; error?: string }> }) {
+  const { toast } = useToast()
   const [first_name, setFirstName] = useState('')
   const [last_name, setLastName] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
@@ -746,7 +751,7 @@ function HelpersTab({ helpers, tickets, onAdd, onDelete }: { helpers: Helper[], 
                   </div>
                   <div className="flex items-center gap-2">
                     <code style={{ color: '#a5b4fc', fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all' }}>{link}</code>
-                    <button onClick={() => { navigator.clipboard.writeText(link); alert('✓ Enlace copiado al portapapeles') }} className="px-2 py-1 rounded text-xs flex-shrink-0" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    <button onClick={() => { navigator.clipboard.writeText(link); toast('Enlace copiado al portapapeles') }} className="px-2 py-1 rounded text-xs flex-shrink-0" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                       📋 Copiar
                     </button>
                   </div>
