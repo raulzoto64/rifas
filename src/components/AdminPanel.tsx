@@ -303,7 +303,17 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
             Envíalo a tus compradores por WhatsApp. Todo lo que vendan se asigna a ti.
           </p>
           <div className="flex items-center gap-2">
-            <code style={{ color: '#fbbf24', fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', flex: '1 1 auto', minWidth: 0 }}>{myLink}</code>
+            <a
+              href={myLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-700 rounded-lg px-3 py-2 flex-1 min-w-0"
+              style={{ background: 'rgba(245,166,35,0.12)', color: '#fbbf24', border: '1px solid rgba(245,166,35,0.3)', textDecoration: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              🔗 {helper.first_name} · tocar aquí para abrir
+            </a>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
             <a
               href={`https://wa.me/?text=${encodeURIComponent(`🎟️ Te invito a participar en la Rifa Pro Salud. Entra por mi enlace, elige tus números y aparta los que quieras: ${myLink}`)}`}
               target="_blank"
