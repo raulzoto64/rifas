@@ -14,9 +14,9 @@ interface Props {
   onClose: () => void
 }
 
-// Admin general: número + contraseña maestra
 const GENERAL_ADMIN_NUMBER = '+51993790515'
 const GENERAL_ADMIN_PASSWORD = 'denis123019@'
+const SESSION_KEY = 'rifas_pro_salud_admin_session'
 
 type Role = 'admin' | 'helper' | null
 
@@ -31,18 +31,42 @@ function formatDate(iso: string) {
 type AdminTab = 'payments' | 'tickets' | 'participants' | 'helpers'
 
 export default function AdminPanel({ tickets, payments, participants, helpers, onUpdatePayment, onDeleteTicket, onDeleteParticipant, onAddHelper, onDeleteHelper, onClose }: Props) {
-  const [authed, setAuthed] = useState(false)
-  const [role, setRole] = useState<Role>(null)
-  const [helperId, setHelperId] = useState<string | null>(null)
+  // Restaurar sesión guardada (número + contraseña ya ingresados antes)
+  const [authed, setAuthed] = useState<boolean>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
+      return !!s && !!s.role
+    } catch { return false }
+  })
+  const [role, setRole] = useState<Role>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
+      return s && (s.role === 'admin' || s.role === 'helper') ? s.role : null
+    } catch { return null }
+  })
+  const [helperId, setHelperId] = useState<string | null>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
+      return s && s.role === 'helper' ? (s.helperId ?? null) : null
+    } catch { return null }
+  })
   const [number, setNumber] = useState('')
   const [pw, setPw] = useState('')
   const [pwError, setPwError] = useState(false)
+  const [showPw, setShowPw] = useState(false)
   const [tab, setTab] = useState<AdminTab>('payments')
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
 
+  const persistSession = (r: Role, hid: string | null) => {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ role: r, helperId: hid }))
+    } catch { /* ignore */ }
+  }
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    const num = number.trim()
+    // Número completo = prefijo +51 + los dígitos que escribió el usuario
+    const num = `+51${number.replace(/\D/g, '')}`
 
     // Admin general (número maestro)
     if (num === GENERAL_ADMIN_NUMBER && pw === GENERAL_ADMIN_PASSWORD) {
@@ -50,6 +74,7 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
       setHelperId(null)
       setAuthed(true)
       setPwError(false)
+      persistSession('admin', null)
       return
     }
 
@@ -60,13 +85,21 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
       setHelperId(helper.id)
       setAuthed(true)
       setPwError(false)
+      persistSession('helper', helper.id)
       return
     }
 
     setPwError(true)
   }
 
-  if (!authed) {
+  // Familiar autenticado: si fue eliminado, forzar a login de nuevo
+  const authedHelper = role === 'helper' && helperId ? helpers.find(h => h.id === helperId) : undefined
+  const needsLogin = !authed || (role === 'helper' && helperId && !authedHelper)
+
+  if (needsLogin) {
+    if (authedHelper === undefined && role === 'helper') {
+      try { localStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    }
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
         <div className="w-full max-w-sm rounded-2xl p-8" style={{ background: '#13102e', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -78,22 +111,41 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
             <p className="text-xs mt-1" style={{ color: 'rgba(224,220,255,0.45)' }}>Ingresa tu número y contraseña.</p>
           </div>
           <form onSubmit={handleLogin} className="flex flex-col gap-3">
-            <input
-              type="tel"
-              value={number}
-              onChange={e => setNumber(e.target.value)}
-              placeholder="Número (ej: +51993790515)"
-              className="rounded-xl px-4 py-3 text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${pwError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, color: '#e8e4ff', fontFamily: 'var(--font-mono)' }}
-            />
-            <input
-              type="password"
-              value={pw}
-              onChange={e => setPw(e.target.value)}
-              placeholder="Contraseña"
-              className="rounded-xl px-4 py-3 text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${pwError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, color: '#e8e4ff', fontFamily: 'var(--font-mono)' }}
-            />
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-500" style={{ color: 'rgba(224,220,255,0.55)', fontFamily: 'var(--font-body)' }}>Número de celular</span>
+              <div className="flex items-stretch overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${pwError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12 }}>
+                <span className="flex items-center gap-1.5 px-3 text-sm" style={{ background: 'rgba(255,255,255,0.03)', borderRight: '1px solid rgba(255,255,255,0.08)', color: '#e8e4ff', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
+                  <span style={{ fontSize: 16 }}>🇵🇪</span> +51
+                </span>
+                <input
+                  type="tel"
+                  value={number}
+                  onChange={e => setNumber(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="999 000 000"
+                  autoComplete="tel-national"
+                  inputMode="numeric"
+                  className="flex-1 px-3 py-3 text-sm outline-none"
+                  style={{ background: 'transparent', color: '#e8e4ff', fontFamily: 'var(--font-mono)' }}
+                />
+              </div>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-500" style={{ color: 'rgba(224,220,255,0.55)', fontFamily: 'var(--font-body)' }}>Contraseña</span>
+              <div className="flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${pwError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, paddingRight: 8 }}>
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={pw}
+                  onChange={e => setPw(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="flex-1 px-3 py-3 text-sm outline-none"
+                  style={{ background: 'transparent', color: '#e8e4ff', fontFamily: 'var(--font-mono)' }}
+                />
+                <button type="button" onClick={() => setShowPw(v => !v)} className="flex-shrink-0 rounded-lg flex items-center justify-center" style={{ width: 32, height: 32, background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 16 }} title={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                  {showPw ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </label>
             {pwError && <p className="text-xs" style={{ color: '#fca5a5' }}>Número o contraseña incorrectos</p>}
             <button type="submit" className="rounded-xl py-3 font-600 text-sm" style={{ background: 'linear-gradient(135deg,#f5a623,#f97316)', color: '#1a0a00', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
               Ingresar
@@ -108,11 +160,10 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
   }
 
   // ── Vista de familiar: SOLO sus propios compradores/prospectos ──
-  if (role === 'helper' && helperId) {
-    const helper = helpers.find(h => h.id === helperId)
+  if (role === 'helper' && helperId && authedHelper) {
     return (
       <HelperPanel
-        helper={helper}
+        helper={authedHelper}
         tickets={tickets}
         payments={payments}
         participants={participants}
@@ -120,7 +171,7 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
         onDeleteParticipant={onDeleteParticipant}
         onClose={onClose}
       />
-    )
+)
   }
 
   const filteredPayments = payments.filter(p => filter === 'all' || p.status === filter)
@@ -202,6 +253,9 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
 }) {
   if (!helper) return null
 
+  const baseUrl = `${window.location.origin}${window.location.pathname}`
+  const myLink = `${baseUrl}?ref=${helper.link_token}`
+
   // Tickets vendidos por este familiar (referred_by = su id)
   const myTicketIds = new Set(tickets.filter(t => t.referred_by === helper.id).map(t => t.id))
   // Los números que vendió, por participante
@@ -234,6 +288,36 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
         <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.6)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
           ← Volver a la rifa
         </button>
+      </div>
+
+      {/* Tu enlace personal */}
+      <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="rounded-2xl p-4" style={{ background: 'rgba(245,166,35,0.07)', border: '1px solid rgba(245,166,35,0.25)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span style={{ fontSize: 16 }}>🔗</span>
+            <span className="text-sm font-700" style={{ color: '#fbbf24', fontFamily: 'var(--font-display)' }}>
+              Tu enlace para vender
+            </span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'rgba(251,191,36,0.6)' }}>
+            Envíalo a tus compradores por WhatsApp. Todo lo que vendan se asigna a ti.
+          </p>
+          <div className="flex items-center gap-2">
+            <code style={{ color: '#fbbf24', fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', flex: '1 1 auto', minWidth: 0 }}>{myLink}</code>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`🎟️ Te invito a participar en la Rifa Pro Salud. Entra por mi enlace, elige tus números y aparta los que quieras: ${myLink}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 rounded-lg px-3 py-2 text-xs font-600"
+              style={{ background: '#25D366', color: '#fff', textDecoration: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+            >
+              💬 Enviar
+            </a>
+            <button onClick={() => { navigator.clipboard.writeText(myLink); alert('✓ Enlace copiado al portapapeles') }} className="flex-shrink-0 rounded-lg px-3 py-2 text-xs font-600" style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              📋 Copiar
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
