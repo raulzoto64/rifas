@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Payment, Ticket, Participant, Helper } from '../types'
 import { useToast } from './Toast'
+import { encodeRefToken } from '../lib/ref'
 
 interface Props {
   tickets: Ticket[]
@@ -62,6 +63,17 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify({ role: r, helperId: hid }))
     } catch { /* ignore */ }
+  }
+
+  const handleLogout = () => {
+    try { localStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    setRole(null)
+    setHelperId(null)
+    setAuthed(false)
+    setNumber('')
+    setPw('')
+    setShowPw(false)
+    setPwError(false)
   }
 
   const handleLogin = (e: React.FormEvent) => {
@@ -170,6 +182,7 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
         participants={participants}
         onUpdatePayment={onUpdatePayment}
         onDeleteParticipant={onDeleteParticipant}
+        onLogout={handleLogout}
         onClose={onClose}
       />
 )
@@ -192,9 +205,14 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
             <p className="text-xs" style={{ color: 'rgba(224,220,255,0.4)' }}>Gran Rifa Navideña 2024</p>
           </div>
         </div>
-        <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.6)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-          ← Volver a la rifa
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleLogout} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            🚪 Cerrar sesión
+          </button>
+          <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.6)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            ← Volver a la rifa
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -243,13 +261,14 @@ export default function AdminPanel({ tickets, payments, participants, helpers, o
 }
 
 // ── Panel del familiar: SOLO sus propios compradores/prospectos ──
-function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment, onDeleteParticipant, onClose }: {
+function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment, onDeleteParticipant, onLogout, onClose }: {
   helper?: Helper
   tickets: Ticket[]
   payments: Payment[]
   participants: Participant[]
   onUpdatePayment: (id: string, status: 'approved' | 'rejected') => void
   onDeleteParticipant: (id: string) => Promise<{ success: boolean; error?: string }>
+  onLogout: () => void
   onClose: () => void
 }) {
   if (!helper) return null
@@ -257,7 +276,7 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
   const { toast } = useToast()
 
   const baseUrl = `${window.location.origin}${window.location.pathname}`
-  const myLink = `${baseUrl}?ref=${helper.link_token}`
+  const myLink = `${baseUrl}?ref=${encodeRefToken(helper.link_token)}`
 
   // Tickets vendidos por este familiar (referred_by = su id)
   const myTicketIds = new Set(tickets.filter(t => t.referred_by === helper.id).map(t => t.id))
@@ -288,9 +307,14 @@ function HelperPanel({ helper, tickets, payments, participants, onUpdatePayment,
             <p className="text-xs" style={{ color: 'rgba(224,220,255,0.4)' }}>Mis compradores — Rifas Pro Salud</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+        <button onClick={onLogout} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+          🚪 Cerrar sesión
+        </button>
         <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(224,220,255,0.6)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
           ← Volver a la rifa
         </button>
+      </div>
       </div>
 
       {/* Tu enlace personal */}
@@ -736,7 +760,7 @@ function HelpersTab({ helpers, tickets, onAdd, onDelete }: { helpers: Helper[], 
         {helpers.map(h => {
           const soldCount = tickets.filter(t => t.referred_by === h.id && t.status === 'paid').length
           const reservedCount = tickets.filter(t => t.referred_by === h.id && t.status === 'reserved').length
-          const link = `${baseUrl}?ref=${h.link_token}`
+          const link = `${baseUrl}?ref=${encodeRefToken(h.link_token)}`
           return (
             <div key={h.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="flex items-start justify-between gap-3">

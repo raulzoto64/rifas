@@ -9,6 +9,7 @@ import type {
   ConfirmPaymentPayload,
 } from '../types'
 import { supabase } from '../lib/supabase'
+import { decodeRefToken } from '../lib/ref'
 
 const RAFFLE_SLUG = 'rifa-pro-salud'
 const STORAGE_KEY = 'rifas_pro_salud_whatsapp'
@@ -139,7 +140,7 @@ export function useRaffleStore() {
         const params = new URLSearchParams(window.location.search)
         const refToken = params.get('ref')
         if (refToken) {
-          const matched = (helpersData ?? []).find((h) => h.link_token === refToken)
+          const matched = (helpersData ?? []).find((h) => h.link_token === decodeRefToken(refToken))
           if (matched) localStorage.setItem(REF_KEY, matched.id)
           else localStorage.removeItem(REF_KEY)
         }
