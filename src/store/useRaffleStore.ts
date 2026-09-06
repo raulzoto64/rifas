@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from "react"
 import type {
   Raffle,
   Ticket,
@@ -6,21 +6,19 @@ import type {
   Payment,
   Helper,
   ReservePayload,
-  ConfirmPaymentPayload,
-} from '../types'
-import { supabase } from '../lib/supabase'
-import { decodeRefToken } from '../lib/ref'
+} from "../types"
+import { supabase } from "../lib/supabase"
+import { decodeRefToken } from "../lib/ref"
 
-const RAFFLE_SLUG = 'rifa-pro-salud'
-const STORAGE_KEY = 'rifas_pro_salud_whatsapp'
-const CLIENT_CODE_KEY = 'rifas_pro_salud_client_code'
-const REF_KEY = 'rifas_pro_salud_referrer'
-const LAST_PAYMENT_CODE_KEY = 'rifas_pro_salud_last_payment_code'
+const RAFFLE_SLUG = "rifa-pro-salud"
+const STORAGE_KEY = "rifas_pro_salud_whatsapp"
+const CLIENT_CODE_KEY = "rifas_pro_salud_client_code"
+const REF_KEY = "rifas_pro_salud_referrer"
 
-type Result = { success: boolean; error?: string }
+type Result = { success: boolean error?: string }
 
 // Estado de identidad del visitante
-export type IdentityState = 'checking' | 'unknown' | 'new' | 'recognized'
+export type IdentityState = "checking" | "unknown" | "new" | "recognized"
 
 // Perfil del participante identificado
 export interface ParticipantProfile {
@@ -39,29 +37,6 @@ export interface ParticipantProfile {
   }>
 }
 
-// ── Generar código de pago único y legible (ej: RPS-4F7K2) ───
-async function generateUniqueCode(client: ReturnType<typeof supabase>, raffleId?: string): Promise<string> {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  for (let attempt = 0; attempt < 20; attempt++) {
-    let code = 'RPS-'
-    for (let i = 0; i < 5; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)]
-    }
-    let exists = false
-    if (raffleId) {
-      const { data } = await client
-        .from('payments')
-        .select('id')
-        .eq('payment_code', code)
-        // .eq('raffle_id', raffleId)
-        .maybeSingle()
-      if (data) exists = true
-    }
-    if (!exists) return code
-  }
-  throw new Error('No se pudo generar un código de pago único.')
-}
-
 export function useRaffleStore() {
   const [raffle, setRaffle] = useState<Raffle | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -71,10 +46,11 @@ export function useRaffleStore() {
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null)
+  const [currentParticipant, setCurrentParticipant] =
+    useState<Participant | null>(null)
   const [profile, setProfile] = useState<ParticipantProfile | null>(null)
   const [checkingProfile, setCheckingProfile] = useState(false)
-  const [identity, setIdentity] = useState<IdentityState>('checking')
+  const [identity, setIdentity] = useState<IdentityState>("checking")
 
   // Código interno persistente del dispositivo (se guarda en localStorage)
   function getOrCreateClientCode(): string {
@@ -98,49 +74,52 @@ export function useRaffleStore() {
 
         // 1. Rifa activa
         const { data: raffleData, error: raffleError } = await client
-          .from('raffles')
-          .select('*')
-          .eq('slug', RAFFLE_SLUG)
+          .from("raffles")
+          .select("*")
+          .eq("slug", RAFFLE_SLUG)
           .maybeSingle()
         if (raffleError) throw raffleError
-        if (!raffleData) throw new Error(`No se encontró la rifa '${RAFFLE_SLUG}'. Revisá el seed en database/schema.sql.`)
+        if (!raffleData)
+          throw new Error(
+            `No se encontró la rifa '${RAFFLE_SLUG}'. Revisá el seed en database/schema.sql.`,
+          )
         if (cancelled) return
 
         // 2. Participantes
-        const { data: participantsData, error: participantsError } = await client
-          .from('participants')
-          .select('*')
-          .order('created_at')
+        const { data: participantsData, error: participantsError } =
+          await client.from("participants").select("*").order("created_at")
         if (participantsError) throw participantsError
 
         // 3. Tickets
         const { data: ticketsData, error: ticketsError } = await client
-          .from('tickets')
-          .select('*')
-          .eq('raffle_id', raffleData.id)
-          .order('ticket_number')
+          .from("tickets")
+          .select("*")
+          .eq("raffle_id", raffleData.id)
+          .order("ticket_number")
         if (ticketsError) throw ticketsError
 
         // 4. Pagos
         const { data: paymentsData, error: paymentsError } = await client
-          .from('payments')
-          .select('*')
-          .eq('raffle_id', raffleData.id)
-          .order('created_at')
+          .from("payments")
+          .select("*")
+          .eq("raffle_id", raffleData.id)
+          .order("created_at")
         if (paymentsError) throw paymentsError
 
         // 5. Familiares/amigos (colaboradores con enlace)
         const { data: helpersData, error: helpersError } = await client
-          .from('helpers')
-          .select('*')
-          .order('created_at')
+          .from("helpers")
+          .select("*")
+          .order("created_at")
         if (helpersError) throw helpersError
 
         // Capturar enlace de referido (?ref=...) y recordar el colaborador
         const params = new URLSearchParams(window.location.search)
-        const refToken = params.get('ref')
+        const refToken = params.get("ref")
         if (refToken) {
-          const matched = (helpersData ?? []).find((h) => h.link_token === decodeRefToken(refToken))
+          const matched = (helpersData ?? []).find(
+            (h) => h.link_token === decodeRefToken(refToken),
+          )
           if (matched) localStorage.setItem(REF_KEY, matched.id)
           else localStorage.removeItem(REF_KEY)
         }
@@ -150,7 +129,7 @@ export function useRaffleStore() {
         const parts = (participantsData ?? []) as Participant[]
         const tks = (ticketsData ?? []) as Ticket[]
         const pys = (paymentsData ?? []).map((p) => ({
-          ...(p as Payment),
+          ...p as Payment,
           participant: parts.find((pt) => pt.id === p.participant_id),
         }))
 
@@ -161,7 +140,9 @@ export function useRaffleStore() {
         setHelpers((helpersData ?? []) as Helper[])
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Error al cargar los datos.')
+        setError(
+          err instanceof Error ? err.message : "Error al cargar los datos.",
+        )
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -178,9 +159,9 @@ export function useRaffleStore() {
       const client = supabase()
       try {
         const { data: myTickets, error: tErr } = await client
-          .from('tickets')
-          .select('id, raffle_id, ticket_number, status, payment_code')
-          .eq('participant_id', participant.id)
+          .from("tickets")
+          .select("id, raffle_id, ticket_number, status, payment_code")
+          .eq("participant_id", participant.id)
         if (tErr) throw tErr
 
         const all = (myTickets ?? []) as Array<{
@@ -190,43 +171,50 @@ export function useRaffleStore() {
           status: string
           payment_code: string | null
         }>
-        const currentRaffleTickets = all.filter((t) => t.raffle_id === raffle?.id)
+        const currentRaffleTickets = all.filter(
+          (t) => t.raffle_id === raffle?.id,
+        )
 
         const reservedNumbers = currentRaffleTickets
-          .filter((t) => t.status === 'reserved' && !t.payment_code)
+          .filter((t) => t.status === "reserved" && !t.payment_code)
           .map((t) => t.ticket_number)
         const pendingNumbers = currentRaffleTickets
-          .filter((t) => t.status === 'reserved' && t.payment_code)
+          .filter((t) => t.status === "reserved" && t.payment_code)
           .map((t) => t.ticket_number)
         const paidNumbers = currentRaffleTickets
-          .filter((t) => t.status === 'paid')
+          .filter((t) => t.status === "paid")
           .map((t) => t.ticket_number)
 
         // Historial por rifa
-        const byRaffle = new Map<
-          string,
-          { raffleId: string; title: string; status: string; paid: number[]; pending: number[] }
-        >()
+        const byRaffle = new Map<string, {
+          raffleId: string
+          title: string
+          status: string
+          paid: number[]
+          pending: number[]
+        }>()
         for (const t of all) {
           const g = byRaffle.get(t.raffle_id) ?? {
             raffleId: t.raffle_id,
-            title: 'Rifa',
-            status: 'active',
+            title: "Rifa",
+            status: "active",
             paid: [],
             pending: [],
           }
-          if (t.status === 'paid') g.paid.push(t.ticket_number)
+          if (t.status === "paid") g.paid.push(t.ticket_number)
           else g.pending.push(t.ticket_number)
           byRaffle.set(t.raffle_id, g)
         }
         if (byRaffle.size > 0) {
           const { data: allRaffles, error: rErr } = await client
-            .from('raffles')
-            .select('id, title, status')
-            .in('id', Array.from(byRaffle.keys()))
+            .from("raffles")
+            .select("id, title, status")
+            .in("id", Array.from(byRaffle.keys()))
           if (rErr) throw rErr
           for (const g of byRaffle.values()) {
-            const r = (allRaffles ?? []).find((x: { id: string }) => x.id === g.raffleId)
+            const r = (allRaffles ?? []).find(
+              (x: { id: string }) => x.id === g.raffleId,
+            )
             if (r) {
               g.title = r.title
               g.status = r.status
@@ -252,7 +240,7 @@ export function useRaffleStore() {
         return null
       }
     },
-    [raffle]
+    [raffle],
   )
 
   // ── Reconocimiento por código interno del dispositivo ───────────
@@ -262,9 +250,9 @@ export function useRaffleStore() {
     try {
       const client = supabase()
       const { data: participant, error } = await client
-        .from('participants')
-        .select('*')
-        .eq('client_code', code)
+        .from("participants")
+        .select("*")
+        .eq("client_code", code)
         .maybeSingle()
       if (error || !participant) return false
 
@@ -273,7 +261,7 @@ export function useRaffleStore() {
 
       setCurrentParticipant(participant as Participant)
       setProfile(prof)
-      setIdentity('recognized')
+      setIdentity("recognized")
       return true
     } catch (err) {
       console.error(err)
@@ -295,11 +283,11 @@ export function useRaffleStore() {
           const result = await identifyByWhatsapp(savedWhatsapp)
           if (cancelled) return
           if (result && result.participant.id) {
-            setIdentity('recognized')
+            setIdentity("recognized")
             return
           }
         }
-        setIdentity('unknown')
+        setIdentity("unknown")
       }
     })()
     return () => {
@@ -315,9 +303,9 @@ export function useRaffleStore() {
       try {
         const client = supabase()
         const { data: participant, error: pErr } = await client
-          .from('participants')
-          .select('*')
-          .eq('whatsapp', whatsapp)
+          .from("participants")
+          .select("*")
+          .eq("whatsapp", whatsapp)
           .maybeSingle()
         if (pErr) throw pErr
 
@@ -331,16 +319,16 @@ export function useRaffleStore() {
         // Habitual: vincular este dispositivo al participante
         const code = getOrCreateClientCode()
         const { error: upErr } = await client
-          .from('participants')
+          .from("participants")
           .update({ client_code: code })
-          .eq('id', participant.id)
+          .eq("id", participant.id)
         if (upErr) throw upErr
 
         const prof = await buildProfile(participant as Participant)
         if (prof) {
           setCurrentParticipant(participant as Participant)
           setProfile(prof)
-          setIdentity('recognized')
+          setIdentity("recognized")
           localStorage.setItem(STORAGE_KEY, whatsapp)
         }
         return prof
@@ -351,38 +339,35 @@ export function useRaffleStore() {
         setCheckingProfile(false)
       }
     },
-    [buildProfile]
+    [buildProfile],
   )
 
   // ── Respuesta del modal "¿nuevo o ya ingresaste?" ───────────────
-  const setIdentityAnswer = useCallback(
-    (answer: 'new' | 'existing') => {
-      if (answer === 'new') {
-        setIdentity('new')
-        // Guardar el código interno ya asignado (es la primera visita)
-        getOrCreateClientCode()
-      }
-      // 'existing' → se deja en 'unknown' hasta que vincule el WhatsApp
-    },
-    []
-  )
+  const setIdentityAnswer = useCallback((answer: "new" | "existing") => {
+    if (answer === "new") {
+      setIdentity("new")
+      // Guardar el código interno ya asignado (es la primera visita)
+      getOrCreateClientCode()
+    }
+    // 'existing' → se deja en 'unknown' hasta que vincule el WhatsApp
+  }, [])
 
   const clearIdentity = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
     setCurrentParticipant(null)
     setProfile(null)
-    setIdentity('unknown')
+    setIdentity("unknown")
   }, [])
 
   const toggleNumber = useCallback(
     (num: number) => {
       const ticket = tickets.find((t) => t.ticket_number === num)
-      if (!ticket || ticket.status !== 'available') return
+      if (!ticket || ticket.status !== "available") return
       setSelectedNumbers((prev) =>
-        prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]
+        prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num],
       )
     },
-    [tickets]
+    [tickets],
   )
 
   const clearSelection = useCallback(() => setSelectedNumbers([]), [])
@@ -395,26 +380,28 @@ export function useRaffleStore() {
 
         // Validar disponibilidad
         const { data: liveTickets, error: liveError } = await client
-          .from('tickets')
-          .select('id, ticket_number, status')
-          .eq('raffle_id', payload.raffle_id)
-          .in('ticket_number', payload.ticket_numbers)
+          .from("tickets")
+          .select("id, ticket_number, status")
+          .eq("raffle_id", payload.raffle_id)
+          .in("ticket_number", payload.ticket_numbers)
         if (liveError) throw liveError
 
-        const unavailable = (liveTickets ?? []).filter((t) => t.status !== 'available')
+        const unavailable = (liveTickets ?? []).filter(
+          (t) => t.status !== "available",
+        )
         if (unavailable.length > 0) {
           return {
             success: false,
-            error: `Los números ${unavailable.map((t) => t.ticket_number).join(', ')} ya no están disponibles.`,
+            error: `Los números ${unavailable.map((t) => t.ticket_number).join(", ")} ya no están disponibles.`,
           }
         }
 
         // Upsert participante por whatsapp
         let participantId: string
         const { data: existing, error: findError } = await client
-          .from('participants')
-          .select('id')
-          .eq('whatsapp', payload.whatsapp)
+          .from("participants")
+          .select("id")
+          .eq("whatsapp", payload.whatsapp)
           .maybeSingle()
         if (findError) throw findError
 
@@ -422,49 +409,45 @@ export function useRaffleStore() {
           participantId = existing.id
         } else {
           const { data: created, error: insertError } = await client
-            .from('participants')
+            .from("participants")
             .insert({
               first_name: payload.first_name,
               last_name: payload.last_name,
               whatsapp: payload.whatsapp,
               client_code: getOrCreateClientCode(),
             })
-            .select('id')
+            .select("id")
             .single()
           if (insertError) throw insertError
           participantId = created.id
         }
 
-        // -- Generar el código único de pago de esta venta -------------
-        // Se crea en el momento del pedido y se le comparte al comprador
-        // SOLO cuando ya envió la captura del pago por WhatsApp.
-        const ticketIds = (liveTickets ?? []).map((t) => t.id)
-        const code = await generateUniqueCode(client, raffle?.id)
-
         // Marcar tickets como reservados (vinculando al familiar/amigo referente)
+        const ticketIds = (liveTickets ?? []).map((t) => t.id)
         const referredBy = localStorage.getItem(REF_KEY) ?? undefined
         const { error: ticketError } = await client
-          .from('tickets')
+          .from("tickets")
           .update({
-            status: 'reserved',
+            status: "reserved",
             participant_id: participantId,
             payment_code: null,
             referred_by: referredBy,
           })
-          .eq('raffle_id', payload.raffle_id)
-          .in('ticket_number', payload.ticket_numbers)
+          .eq("raffle_id", payload.raffle_id)
+          .in("ticket_number", payload.ticket_numbers)
         if (ticketError) throw ticketError
 
-        // Crear el pago pendiente con su código de confirmación único
+        // Crear el pago pendiente (sin código de verificación)
         const { data: payment, error: payError } = await client
-          .from('payments')
+          .from("payments")
           .insert({
             raffle_id: payload.raffle_id,
             ticket_ids: ticketIds,
             participant_id: participantId,
-            payment_code: code,
-            status: 'pending',
-            amount_paid: payload.ticket_numbers.length * (raffle?.ticket_price ?? 0),
+            payment_code: null,
+            status: "pending",
+            amount_paid:
+              payload.ticket_numbers.length * (raffle?.ticket_price ?? 0),
           })
           .select()
           .single()
@@ -472,33 +455,27 @@ export function useRaffleStore() {
 
         // Refrescar estado local
         const participant = (await client
-          .from('participants')
-          .select('*')
-          .eq('id', participantId)
+          .from("participants")
+          .select("*")
+          .eq("id", participantId)
           .single()) as unknown as Participant
         const newTickets = [...tickets]
         for (const n of payload.ticket_numbers) {
           const t = newTickets.find((tk) => tk.ticket_number === n)
           if (t) {
-            t.status = 'reserved'
+            t.status = "reserved"
             t.participant_id = participantId
             t.payment_code = undefined
           }
         }
         setTickets(newTickets)
-        setPayments((prev) => [
-          ...prev,
-          { ...(payment as Payment), participant },
-        ])
+        setPayments((prev) => [...prev, { ...payment as Payment, participant }])
         setSelectedNumbers([])
-
-        // Guardar el código de la venta para mostrarlo al familiar/admin
-        localStorage.setItem(LAST_PAYMENT_CODE_KEY, code)
 
         // Guardar identidad + refrescar perfil del participante
         localStorage.setItem(STORAGE_KEY, payload.whatsapp)
         setCurrentParticipant(participant)
-        setIdentity('recognized')
+        setIdentity("recognized")
         const updatedProfile = await buildProfile(participant)
         if (updatedProfile) setProfile(updatedProfile)
 
@@ -506,113 +483,44 @@ export function useRaffleStore() {
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al reservar los números.',
+          error:
+            err instanceof Error
+              ? err.message
+              : "Error al reservar los números.",
         }
       }
     },
-    [tickets, raffle, buildProfile]
-  )
-
-  // ── STEP 2 — Confirmar pago (el comprador ingresa el código único) ──
-  const confirmPayment = useCallback(
-    async (payload: ConfirmPaymentPayload): Promise<Result> => {
-      try {
-        const client = supabase()
-        const ticketNumbers = payload.ticket_numbers
-        const reservedTicketIds = tickets
-          .filter((t) => ticketNumbers.includes(t.ticket_number))
-          .map((t) => t.id)
-
-        // Encontrar la reserva pendiente que cubra esos números
-        const matchingPayment = payments.find(
-          (p) =>
-            p.status === 'pending' &&
-            reservedTicketIds.length > 0 &&
-            reservedTicketIds.every((id) => p.ticket_ids.includes(id))
-        )
-        if (!matchingPayment) {
-          return { success: false, error: 'No se encontró la reserva correspondiente.' }
-        }
-
-        // El código es único por venta: debe coincidir exactamente.
-        // El familiar/admin se lo comparte tras ver la captura del pago.
-        if (payload.payment_code !== matchingPayment.payment_code) {
-          return {
-            success: false,
-            error: 'El código no coincide con el de tu pedido. Verificalo con tu vendedor.',
-          }
-        }
-
-        // Marcar pagos como pagados
-        const { error: payError } = await client
-          .from('payments')
-          .update({ status: 'approved' })
-          .eq('id', matchingPayment.id)
-        if (payError) throw payError
-
-        // Marcar tickets como pagados
-        const { error: ticketError } = await client
-          .from('tickets')
-          .update({ status: 'paid', payment_code: matchingPayment.payment_code })
-          .eq('raffle_id', raffle!.id)
-          .in('ticket_number', ticketNumbers)
-        if (ticketError) throw ticketError
-
-        setPayments((prev) =>
-          prev.map((p) =>
-            p.id === matchingPayment.id ? { ...p, status: 'approved' } : p
-          )
-        )
-        setTickets((prev) =>
-          prev.map((t) =>
-            ticketNumbers.includes(t.ticket_number)
-              ? { ...t, status: 'paid', payment_code: matchingPayment.payment_code }
-              : t
-          )
-        )
-        localStorage.removeItem(LAST_PAYMENT_CODE_KEY)
-
-        // Refrescar perfil si hay sesión activa
-        if (currentParticipant) {
-          const updatedProfile = await buildProfile(currentParticipant)
-          if (updatedProfile) setProfile(updatedProfile)
-        }
-
-        return { success: true }
-      } catch (err) {
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Error al confirmar el pago.',
-        }
-      }
-    },
-    [payments, tickets, raffle, currentParticipant, buildProfile]
+    [tickets, raffle, buildProfile],
   )
 
   // ── Agregar números nuevos a una reserva pendiente existente ──
   // Si el participante ya dejó una reserva (pago) pendiente, nuevos números se
   // suman a ese mismo pago/código en vez de crear uno nuevo.
   const addToReservation = useCallback(
-    async (payload: { raffle_id: string; ticket_numbers: number[] }): Promise<
-      Result & { ticket_numbers?: number[] }
-    > => {
+    async (payload: {
+      raffle_id: string
+      ticket_numbers: number[]
+    }): Promise<Result & { ticket_numbers?: number[] }> => {
       try {
         const client = supabase()
         const participantId = currentParticipant?.id
-        if (!participantId) return { success: false, error: 'No hay sesión activa.' }
+        if (!participantId)
+          return { success: false, error: "No hay sesión activa." }
 
         // Validar disponibilidad de los nuevos números
         const { data: liveTickets, error: liveError } = await client
-          .from('tickets')
-          .select('id, ticket_number, status')
-          .eq('raffle_id', payload.raffle_id)
-          .in('ticket_number', payload.ticket_numbers)
+          .from("tickets")
+          .select("id, ticket_number, status")
+          .eq("raffle_id", payload.raffle_id)
+          .in("ticket_number", payload.ticket_numbers)
         if (liveError) throw liveError
-        const unavailable = (liveTickets ?? []).filter((t) => t.status !== 'available')
+        const unavailable = (liveTickets ?? []).filter(
+          (t) => t.status !== "available",
+        )
         if (unavailable.length > 0) {
           return {
             success: false,
-            error: `Los números ${unavailable.map((t) => t.ticket_number).join(', ')} ya no están disponibles.`,
+            error: `Los números ${unavailable.map((t) => t.ticket_number).join(", ")} ya no están disponibles.`,
           }
         }
 
@@ -620,36 +528,41 @@ export function useRaffleStore() {
         const pending = payments.find(
           (p) =>
             p.participant_id === participantId &&
-            p.status === 'pending' &&
-            p.amount_paid != null
+            p.status === "pending" &&
+            p.amount_paid != null,
         )
         if (!pending || !pending.payment_code) {
-          return { success: false, error: 'No hay una reserva pendiente para ampliar.' }
+          return {
+            success: false,
+            error: "No hay una reserva pendiente para ampliar.",
+          }
         }
 
         const newIds = (liveTickets ?? []).map((t) => t.id)
-        const combinedIds = Array.from(new Set([...pending.ticket_ids, ...newIds]))
+        const combinedIds = Array.from(
+          new Set([...pending.ticket_ids, ...newIds]),
+        )
         const combinedAmount = combinedIds.length * (raffle?.ticket_price ?? 0)
 
         // Ampliar el pago pendiente existente
         const { error: payError } = await client
-          .from('payments')
+          .from("payments")
           .update({ ticket_ids: combinedIds, amount_paid: combinedAmount })
-          .eq('id', pending.id)
+          .eq("id", pending.id)
         if (payError) throw payError
 
         // Reservar los nuevos números con el participante
         const referredBy = localStorage.getItem(REF_KEY) ?? undefined
         const { error: ticketError } = await client
-          .from('tickets')
+          .from("tickets")
           .update({
-            status: 'reserved',
+            status: "reserved",
             participant_id: participantId,
             payment_code: pending.payment_code,
             referred_by: referredBy,
           })
-          .eq('raffle_id', payload.raffle_id)
-          .in('ticket_number', payload.ticket_numbers)
+          .eq("raffle_id", payload.raffle_id)
+          .in("ticket_number", payload.ticket_numbers)
         if (ticketError) throw ticketError
 
         // Refrescar estado local
@@ -657,15 +570,20 @@ export function useRaffleStore() {
           prev.map((p) =>
             p.id === pending.id
               ? { ...p, ticket_ids: combinedIds, amount_paid: combinedAmount }
-              : p
-          )
+              : p,
+          ),
         )
         setTickets((prev) =>
           prev.map((t) =>
             payload.ticket_numbers.includes(t.ticket_number)
-              ? { ...t, status: 'reserved', participant_id: participantId, payment_code: pending.payment_code }
-              : t
-          )
+              ? {
+                  ...t,
+                  status: "reserved",
+                  participant_id: participantId,
+                  payment_code: pending.payment_code,
+                }
+              : t,
+          ),
         )
         setSelectedNumbers([])
         if (currentParticipant) {
@@ -676,39 +594,40 @@ export function useRaffleStore() {
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al ampliar la reserva.',
+          error:
+            err instanceof Error ? err.message : "Error al ampliar la reserva.",
         }
       }
     },
-    [payments, tickets, raffle, currentParticipant, buildProfile]
+    [payments, tickets, raffle, currentParticipant, buildProfile],
   )
 
   const updatePaymentStatus = useCallback(
-    async (paymentId: string, status: 'approved' | 'rejected') => {
+    async (paymentId: string, status: "approved" | "rejected") => {
       try {
         const client = supabase()
         const payment = payments.find((p) => p.id === paymentId)
         if (!payment) return
 
         const { error: payError } = await client
-          .from('payments')
+          .from("payments")
           .update({ status })
-          .eq('id', paymentId)
+          .eq("id", paymentId)
         if (payError) throw payError
 
-        const newTicketStatus = status === 'approved' ? 'paid' : 'available'
+        const newTicketStatus = status === "approved" ? "paid" : "available"
         const { error: ticketError } = await client
-          .from('tickets')
+          .from("tickets")
           .update({
             status: newTicketStatus,
-            participant_id: status === 'rejected' ? null : undefined,
-            payment_code: status === 'rejected' ? null : undefined,
+            participant_id: status === "rejected" ? null : undefined,
+            payment_code: status === "rejected" ? null : undefined,
           })
-          .in('id', payment.ticket_ids)
+          .in("id", payment.ticket_ids)
         if (ticketError) throw ticketError
 
         setPayments((prev) =>
-          prev.map((p) => (p.id === paymentId ? { ...p, status } : p))
+          prev.map((p) => (p.id === paymentId ? { ...p, status } : p)),
         )
         setTickets((prev) =>
           prev.map((t) => {
@@ -716,26 +635,32 @@ export function useRaffleStore() {
             return {
               ...t,
               status: newTicketStatus,
-              participant_id: status === 'rejected' ? undefined : t.participant_id,
-              payment_code: status === 'rejected' ? undefined : t.payment_code,
+              participant_id:
+                status === "rejected" ? undefined : t.participant_id,
+              payment_code: status === "rejected" ? undefined : t.payment_code,
             }
-          })
+          }),
         )
       } catch (err) {
         console.error(err)
       }
     },
-    [payments]
+    [payments],
   )
 
   // ── Admin: agregar familiar/amigo con su enlace personal ──────
   const addHelper = useCallback(
-    async (data: { first_name: string; last_name: string; whatsapp: string; password: string }): Promise<Result> => {
+    async (data: {
+      first_name: string
+      last_name: string
+      whatsapp: string
+      password: string
+    }): Promise<Result> => {
       try {
         const client = supabase()
-        const linkToken = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+        const linkToken = crypto.randomUUID().replace(/-/g, "").slice(0, 12)
         const { data: created, error } = await client
-          .from('helpers')
+          .from("helpers")
           .insert({ ...data, link_token: linkToken })
           .select()
           .single()
@@ -745,11 +670,14 @@ export function useRaffleStore() {
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al agregar el familiar/amigo.',
+          error:
+            err instanceof Error
+              ? err.message
+              : "Error al agregar el familiar/amigo.",
         }
       }
     },
-    []
+    [],
   )
 
   // ── Admin: eliminar un familiar/amigo (libera sus referidos) ──
@@ -758,25 +686,33 @@ export function useRaffleStore() {
       try {
         const client = supabase()
         const { error: ticketRefError } = await client
-          .from('tickets')
+          .from("tickets")
           .update({ referred_by: null })
-          .eq('referred_by', helperId)
+          .eq("referred_by", helperId)
         if (ticketRefError) throw ticketRefError
-        const { error } = await client.from('helpers').delete().eq('id', helperId)
+        const { error } = await client
+          .from("helpers")
+          .delete()
+          .eq("id", helperId)
         if (error) throw error
         setHelpers((prev) => prev.filter((h) => h.id !== helperId))
         setTickets((prev) =>
-          prev.map((t) => (t.referred_by === helperId ? { ...t, referred_by: undefined } : t))
+          prev.map((t) =>
+            t.referred_by === helperId ? { ...t, referred_by: undefined } : t,
+          ),
         )
         return { success: true }
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al eliminar el familiar/amigo.',
+          error:
+            err instanceof Error
+              ? err.message
+              : "Error al eliminar el familiar/amigo.",
         }
       }
     },
-    []
+    [],
   )
 
   // ── Admin: eliminar participante (libera sus números y eliminás pagos) ──
@@ -786,41 +722,55 @@ export function useRaffleStore() {
         const client = supabase()
         // Poner sus números como disponibles
         const { error: ticketError } = await client
-          .from('tickets')
-          .update({ status: 'available', participant_id: null, payment_code: null })
-          .eq('participant_id', participantId)
+          .from("tickets")
+          .update({
+            status: "available",
+            participant_id: null,
+            payment_code: null,
+          })
+          .eq("participant_id", participantId)
         if (ticketError) throw ticketError
         // Eliminar sus pagos
         const { error: payError } = await client
-          .from('payments')
+          .from("payments")
           .delete()
-          .eq('participant_id', participantId)
+          .eq("participant_id", participantId)
         if (payError) throw payError
         // Eliminar participante
         const { error: delError } = await client
-          .from('participants')
+          .from("participants")
           .delete()
-          .eq('id', participantId)
+          .eq("id", participantId)
         if (delError) throw delError
 
         setParticipants((prev) => prev.filter((p) => p.id !== participantId))
         setTickets((prev) =>
           prev.map((t) =>
             t.participant_id === participantId
-              ? { ...t, status: 'available', participant_id: undefined, payment_code: undefined }
-              : t
-          )
+              ? {
+                  ...t,
+                  status: "available",
+                  participant_id: undefined,
+                  payment_code: undefined,
+                }
+              : t,
+          ),
         )
-        setPayments((prev) => prev.filter((p) => p.participant_id !== participantId))
+        setPayments((prev) =>
+          prev.filter((p) => p.participant_id !== participantId),
+        )
         return { success: true }
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al eliminar el participante.',
+          error:
+            err instanceof Error
+              ? err.message
+              : "Error al eliminar el participante.",
         }
       }
     },
-    []
+    [],
   )
 
   // ── Admin: liberar un número ─────────────────────────────────
@@ -831,21 +781,31 @@ export function useRaffleStore() {
       try {
         const client = supabase()
         const { error } = await client
-          .from('tickets')
-          .update({ status: 'available', participant_id: null, payment_code: null, referred_by: null })
-          .eq('id', ticketId)
+          .from("tickets")
+          .update({
+            status: "available",
+            participant_id: null,
+            payment_code: null,
+            referred_by: null,
+          })
+          .eq("id", ticketId)
         if (error) throw error
         // Limpiar el id del ticket que quede en los pagos agrupados
         const affected = payments.filter((p) => p.ticket_ids.includes(ticketId))
         for (const p of affected) {
           const remaining = p.ticket_ids.filter((id) => id !== ticketId)
           if (remaining.length === 0) {
-            await client.from('payments').delete().eq('id', p.id)
+            await client.from("payments").delete().eq("id", p.id)
             setPayments((prev) => prev.filter((x) => x.id !== p.id))
           } else {
-            await client.from('payments').update({ ticket_ids: remaining }).eq('id', p.id)
+            await client
+              .from("payments")
+              .update({ ticket_ids: remaining })
+              .eq("id", p.id)
             setPayments((prev) =>
-              prev.map((x) => (x.id === p.id ? { ...x, ticket_ids: remaining } : x))
+              prev.map((x) =>
+                x.id === p.id ? { ...x, ticket_ids: remaining } : x,
+              ),
             )
           }
         }
@@ -854,23 +814,24 @@ export function useRaffleStore() {
             t.id === ticketId
               ? {
                   ...t,
-                  status: 'available',
+                  status: "available",
                   participant_id: undefined,
                   payment_code: undefined,
                   referred_by: undefined,
                 }
-              : t
-          )
+              : t,
+          ),
         )
         return { success: true }
       } catch (err) {
         return {
           success: false,
-          error: err instanceof Error ? err.message : 'Error al liberar el número.',
+          error:
+            err instanceof Error ? err.message : "Error al liberar el número.",
         }
       }
     },
-    [payments]
+    [payments],
   )
 
   return {
@@ -890,7 +851,6 @@ export function useRaffleStore() {
     clearSelection,
     reserveNumbers,
     addToReservation,
-    confirmPayment,
     updatePaymentStatus,
     identifyByWhatsapp,
     setIdentityAnswer,

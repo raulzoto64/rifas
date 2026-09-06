@@ -1,6 +1,6 @@
-export type TicketStatus = 'available' | 'reserved' | 'paid'
-export type RaffleStatus = 'active' | 'ended'
-export type PaymentStatus = 'pending' | 'approved' | 'rejected'
+export type TicketStatus = "available" | "reserved" | "paid"
+export type RaffleStatus = "active" | "ended"
+export type PaymentStatus = "pending" | "approved" | "rejected"
 
 export interface Raffle {
   id: string
@@ -64,10 +64,4 @@ export interface ReservePayload {
   first_name: string
   last_name: string
   whatsapp: string
-}
-
-// Step 2: submit payment code after reservation
-export interface ConfirmPaymentPayload {
-  ticket_numbers: number[]
-  payment_code: string
 }
