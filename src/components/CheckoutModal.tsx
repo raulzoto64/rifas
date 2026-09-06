@@ -23,7 +23,7 @@ interface Props {
   onIdentifyWhatsapp?: (whatsapp: string) => Promise<ParticipantProfile | null>
 }
 
-type Step = "warning" | "data" | "done"
+type Step = "data" | "done"
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-PE", {
@@ -49,7 +49,7 @@ export default function CheckoutModal({
     existingReservation && existingReservation.length > 0,
   )
 
-  const [step, setStep] = useState<Step>("warning")
+  const [step, setStep] = useState<Step>("data")
   const [form, setForm] = useState({
     first_name: profile?.participant.first_name ?? "",
     last_name: profile?.participant.last_name ?? "",
@@ -75,7 +75,7 @@ export default function CheckoutModal({
 
   // En modo "sumar a reserva pendiente": no se vuelven a pedir datos.
   // Se agregan los números nuevos directamente a la reserva existente.
-  const handleAddToExistingOrData = async () => {
+  const handleAddToExisting = async () => {
     if (isAddToExisting) {
       if (!onAddToReservation) {
         setErrorMsg("No se pudo ampliar la reserva.")
@@ -101,8 +101,6 @@ export default function CheckoutModal({
       }
       return
     }
-    setErrorMsg("")
-    setStep("data")
   }
 
   const handleReserve = async (e: React.FormEvent) => {
@@ -143,7 +141,7 @@ export default function CheckoutModal({
   }
 
   // Steps in order for progress indicator
-  const STEPS: Step[] = ["warning", "data", "done"]
+  const STEPS: Step[] = ["data", "done"]
   const stepIndex = STEPS.indexOf(step)
 
   return (
@@ -167,7 +165,7 @@ export default function CheckoutModal({
             <div
               style={{
                 height: "100%",
-                width: `${((stepIndex + 1) / 3) * 100}%`,
+                width: `${((stepIndex + 1) / 2) * 100}%`,
                 background: "linear-gradient(90deg,#6366f1,#f5a623)",
                 transition: "width 0.4s ease",
               }}
@@ -175,25 +173,12 @@ export default function CheckoutModal({
           </div>
         )}
 
-        {step === "warning" && (
-          <WarningStep
-            numbers={sortedSelected}
-            total={selectionTotal}
-            pendingNumbers={isAddToExisting ? existingReservation : undefined}
-            onAccept={handleAddToExistingOrData}
-            onCancel={onClose}
-          />
-        )}
-
         {step === "data" && (
           <>
             <ModalHeader
               title="Tus datos de contacto"
-              subtitle="Paso 2 de 2 — Para apartarte los números"
-              onBack={() => {
-                setErrorMsg("")
-                setStep("warning")
-              }}
+              subtitle="Para apartarte los números"
+              onBack={isAddToExisting ? undefined : onClose}
               onClose={onClose}
             />
             <NumbersSummary
@@ -270,231 +255,6 @@ export default function CheckoutModal({
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────
-
-function WarningStep({
-  numbers,
-  total,
-  pendingNumbers,
-  onAccept,
-  onCancel,
-}: {
-  numbers: number[]
-  total: number
-  pendingNumbers?: number[]
-  onAccept: () => void
-  onCancel: () => void
-}) {
-  const [confirmed, setConfirmed] = useState(false)
-  const pricePer =
-    pendingNumbers && pendingNumbers.length > 0 && numbers.length > 0
-      ? total / numbers.length
-      : null
-  const combinedTotal =
-    pendingNumbers && pricePer
-      ? (pendingNumbers.length + numbers.length) * pricePer
-      : total
-  return (
-    <div className="p-6 flex flex-col gap-5">
-      {/* Back/close row */}
-      <div className="flex items-center justify-between">
-        <span
-          className="text-xs font-500"
-          style={{
-            color: "rgba(224,220,255,0.4)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          Paso 1 de 2
-        </span>
-        <button
-          onClick={onCancel}
-          className="text-xs px-3 py-1.5 rounded-lg"
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            color: "rgba(224,220,255,0.4)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            cursor: "pointer",
-            fontFamily: "var(--font-body)",
-          }}
-        >
-          ← Volver a elegir
-        </button>
-      </div>
-
-      <div
-        className="rounded-2xl p-5"
-        style={{
-          background: "rgba(239,68,68,0.08)",
-          border: "2px solid rgba(239,68,68,0.35)",
-        }}
-      >
-        <div className="flex items-start gap-3">
-          <span style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }}>⚠️</span>
-          <div>
-            <h3
-              className="font-700 text-base mb-2"
-              style={{ fontFamily: "var(--font-display)", color: "#fca5a5" }}
-            >
-              Antes de continuar, lee esto
-            </h3>
-            <p
-              className="text-sm leading-relaxed"
-              style={{ color: "rgba(252,165,165,0.85)" }}
-            >
-              Una vez que apartes tus números,{" "}
-              <strong style={{ color: "#f87171" }}>
-                no podrás cambiarlos ni cancelarlos.
-              </strong>{" "}
-              Los números quedarán bloqueados para ti de forma permanente.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {pendingNumbers && pendingNumbers.length > 0 && (
-        <div
-          className="rounded-xl p-4"
-          style={{
-            background: "rgba(249,115,22,0.08)",
-            border: "1px solid rgba(249,115,22,0.3)",
-          }}
-        >
-          <div
-            className="text-xs mb-2"
-            style={{ color: "rgba(251,146,60,0.75)" }}
-          >
-            Tus números pendientes por pagar
-          </div>
-          <div className="flex flex-wrap gap-1.5 mb-1">
-            {pendingNumbers.map((n) => (
-              <span
-                key={n}
-                className="rounded-lg px-2.5 py-1 text-sm font-700"
-                style={{
-                  background: "rgba(249,115,22,0.15)",
-                  color: "#fdba74",
-                  fontFamily: "var(--font-mono)",
-                  border: "1px solid rgba(249,115,22,0.35)",
-                }}
-              >
-                {String(n).padStart(3, "0")}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div
-        className="rounded-xl p-4"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.07)",
-        }}
-      >
-        <div
-          className="text-xs mb-2"
-          style={{ color: "rgba(224,220,255,0.45)" }}
-        >
-          {pendingNumbers && pendingNumbers.length > 0
-            ? "Números nuevos que agregas"
-            : "Números que vas a apartar"}
-        </div>
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {numbers.map((n) => (
-            <span
-              key={n}
-              className="rounded-lg px-2.5 py-1 text-sm font-700"
-              style={{
-                background: "rgba(99,102,241,0.15)",
-                color: "#c7d2fe",
-                fontFamily: "var(--font-mono)",
-                border: "1px solid rgba(99,102,241,0.3)",
-              }}
-            >
-              {String(n).padStart(3, "0")}
-            </span>
-          ))}
-        </div>
-        <div className="text-xs" style={{ color: "rgba(224,220,255,0.4)" }}>
-          {pendingNumbers && pendingNumbers.length > 0 ? (
-            <>
-              Total a pagar (pendientes + nuevos):{" "}
-              <strong
-                style={{
-                  color: "#f5a623",
-                  fontFamily: "var(--font-display)",
-                  fontSize: 15,
-                }}
-              >
-                {fmt(combinedTotal)}
-              </strong>
-            </>
-          ) : (
-            <>
-              Total a pagar:{" "}
-              <strong
-                style={{
-                  color: "#f5a623",
-                  fontFamily: "var(--font-display)",
-                  fontSize: 15,
-                }}
-              >
-                {fmt(total)}
-              </strong>
-            </>
-          )}
-        </div>
-      </div>
-
-      <label className="flex items-start gap-3 cursor-pointer select-none">
-        <div
-          onClick={() => setConfirmed((v) => !v)}
-          className="flex-shrink-0 rounded-md flex items-center justify-center mt-0.5"
-          style={{
-            width: 20,
-            height: 20,
-            background: confirmed ? "#6366f1" : "rgba(255,255,255,0.08)",
-            border: `2px solid ${
-              confirmed ? "#6366f1" : "rgba(255,255,255,0.2)"
-            }`,
-            transition: "all 0.15s",
-            cursor: "pointer",
-          }}
-        >
-          {confirmed && (
-            <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>
-              ✓
-            </span>
-          )}
-        </div>
-        <span className="text-sm" style={{ color: "rgba(224,220,255,0.65)" }}>
-          Entiendo que los números seleccionados son definitivos y no se pueden
-          cambiar una vez apartados.
-        </span>
-      </label>
-
-      <button
-        onClick={onAccept}
-        disabled={!confirmed}
-        className="w-full rounded-xl py-3.5 text-sm font-700"
-        style={{
-          background: confirmed
-            ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
-            : "rgba(99,102,241,0.12)",
-          color: confirmed ? "#fff" : "rgba(165,180,252,0.3)",
-          border: "none",
-          cursor: confirmed ? "pointer" : "not-allowed",
-          fontFamily: "var(--font-body)",
-          transition: "all 0.2s",
-        }}
-      >
-        {pendingNumbers && pendingNumbers.length > 0
-          ? "Sí, sumar a mis números pendientes →"
-          : "Sí, confirmo mis números →"}
-      </button>
-    </div>
-  )
-}
 
 function ModalHeader({
   title,
